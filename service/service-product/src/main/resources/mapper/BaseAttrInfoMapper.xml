@@ -33,4 +33,20 @@
         </where>
         ORDER BY bai.category_level, bai.id
     </select>
+    <select id="getAttrList" resultMap="baseAttrInfoMap">
+        SELECT
+            bai.id,
+            bai.attr_name,
+            bai.category_id,
+            bai.category_level,
+            bav.id attr_value_id,
+            bav.value_name,
+            bav.attr_id
+        from base_attr_info bai
+        inner join base_attr_value bav
+        on  bai.id = bav.attr_id
+        INNER JOIN sku_attr_value sav
+        ON sav.value_id =bav.id
+        WHERE sku_id = #{skuId}
+    </select>
 </mapper>

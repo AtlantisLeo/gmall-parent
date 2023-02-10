@@ -17,9 +17,6 @@ import org.springframework.stereotype.Component;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
-/**
- * @author atguigu-mqx
- */
 @Component
 @Aspect
 public class GmallCacheAspect {
@@ -36,26 +33,16 @@ public class GmallCacheAspect {
     public Object gmallCacheAspectMethod(ProceedingJoinPoint point){
         //  定义一个对象
         Object obj = new Object();
-        /*
-         业务逻辑！
-         1. 必须先知道这个注解在哪些方法 || 必须要获取到方法上的注解
-         2. 获取到注解上的前缀
-         3. 必须要组成一个缓存的key！
-         4. 可以通过这个key 获取缓存的数据
-            true:
-                直接返回！
-            false:
-                分布式锁业务逻辑！
-         */
         MethodSignature methodSignature = (MethodSignature) point.getSignature();
         GmallCache gmallCache = methodSignature.getMethod().getAnnotation(GmallCache.class);
         //   获取到注解上的前缀
         String prefix = gmallCache.prefix();
+        String suffix = gmallCache.suffix();
         //  组成缓存的key！ 获取方法传递的参数
-        String key = prefix+ Arrays.asList(point.getArgs()).toString();
+        String key = prefix+ Arrays.asList(point.getArgs()).toString()+suffix;
         try {
-            //  可以通过这个key 获取缓存的数据
             obj = this.getRedisData(key,methodSignature);
+            //  可以通过这个key 获取缓存的数据
             if (obj==null){
                 //  分布式业务逻辑
                 //  设置分布式锁，进入数据库进行查询数据！
@@ -70,10 +57,11 @@ public class GmallCacheAspect {
                         obj = point.proceed(point.getArgs());
                         //  防止缓存穿透
                         if (obj==null){
-                            Object object = new Object();
+                            Class aClass = methodSignature.getReturnType();
+                            obj = aClass.newInstance();
                             //  将缓存的数据变为 Json 的 字符串
-                            this.redisTemplate.opsForValue().set(key, JSON.toJSONString(object),RedisConst.SKUKEY_TEMPORARY_TIMEOUT,TimeUnit.SECONDS);
-                            return object;
+                            this.redisTemplate.opsForValue().set(key, JSON.toJSONString(obj),RedisConst.SKUKEY_TEMPORARY_TIMEOUT,TimeUnit.SECONDS);
+                            return obj;
                         }
                         //  将缓存的数据变为 Json 的 字符串
                         this.redisTemplate.opsForValue().set(key, JSON.toJSONString(obj),RedisConst.SKUKEY_TIMEOUT,TimeUnit.SECONDS);

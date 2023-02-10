@@ -1,18 +1,29 @@
 package com.atguigu.gmall.product.service.impl;
 
 
+import com.alibaba.fastjson.JSONObject;
+import com.atguigu.gmall.common.cache.GmallCache;
+import com.atguigu.gmall.common.constant.RedisConst;
 import com.atguigu.gmall.model.product.*;
 import com.atguigu.gmall.product.mapper.*;
 import com.atguigu.gmall.product.service.BaseManagerService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import org.redisson.api.RBloomFilter;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class BaseManagerServiceImpl implements BaseManagerService {
@@ -47,6 +58,10 @@ public class BaseManagerServiceImpl implements BaseManagerService {
     private SkuInfoMapper skuInfoMapper;
     @Autowired
     private SkuSaleAttrValueMapper skuSaleAttrValueMapper;
+    @Autowired
+    private BaseCategoryViewMapper baseCategoryViewMapper;
+    @Autowired
+    private RedissonClient redissonClient;
 
     @Override
     public List<BaseCategory1> getCategory1() {
@@ -207,6 +222,8 @@ public class BaseManagerServiceImpl implements BaseManagerService {
         skuInfo.setIsSale(1);
         skuInfo.setId(skuId);
         skuInfoMapper.updateById(skuInfo);
+        RBloomFilter<Long> bloomFilter = redissonClient.getBloomFilter(RedisConst.SKU_BLOOM_FILTER);
+        bloomFilter.add(skuId);
     }
 
     @Override
@@ -215,6 +232,117 @@ public class BaseManagerServiceImpl implements BaseManagerService {
         skuInfo.setIsSale(0);
         skuInfo.setId(skuId);
         skuInfoMapper.updateById(skuInfo);
+    }
+
+    @Override
+    @GmallCache(prefix = "sku:")
+    public SkuInfo getSkuInfo(Long skuId) {
+        return getSkuInfoDB(skuId);
+
+    }
+
+    private SkuInfo getSkuInfoDB(Long skuId) {
+        SkuInfo skuInfo = skuInfoMapper.selectById(skuId);
+        LambdaQueryWrapper<SkuImage> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(SkuImage::getSkuId, skuId);
+        List<SkuImage> skuImages = skuImageMapper.selectList(queryWrapper);
+        if (skuInfo!=null){
+            skuInfo.setSkuImageList(skuImages);
+        }
+        return skuInfo;
+    }
+
+    @Override
+    @GmallCache(prefix = "categoryView:")
+    public BaseCategoryView getCategoryView(Long category3Id) {
+        return baseCategoryViewMapper.selectById(category3Id);
+    }
+
+    @Override
+    public BigDecimal getSkuPrice(Long skuId) {
+        RLock lock = redissonClient.getLock(skuId + ":lock");
+        BigDecimal price  = new BigDecimal(0);
+        try {
+            lock.lock();
+            SkuInfo skuInfo= skuInfoMapper.selectById(skuId);
+            if (skuInfo!=null){
+                price = skuInfo.getPrice();
+            }
+        }finally {
+            lock.unlock();
+        }
+        return price;
+    }
+
+    @Override
+    @GmallCache(prefix = "spuSaleAttrListCheck:")
+    public List<SpuSaleAttr> getSpuSaleAttrListCheckBySku(Long skuId, Long spuId) {
+        return  spuSaleAttrMapper.getSpuSaleAttrListCheckBySku(skuId,spuId);
+    }
+
+    @Override
+    @GmallCache(prefix = "skuValueIdsMap:")
+    public Map getSkuValueIdsMap(Long spuId) {
+        Map<Object, Object> hashMap = new HashMap<>();
+        List<Map> mapList =  skuSaleAttrValueMapper.getSkuValueIdsMap(spuId);
+        for (Map map : mapList) {
+            hashMap.put(map.get("value_ids"), map.get("sku_id"));
+        }
+        return hashMap;
+    }
+
+    @Override
+    @GmallCache(prefix = "spuPoster:")
+    public List<SpuPoster> findSpuPosterBySpuId(Long spuId) {
+        LambdaQueryWrapper<SpuPoster> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(SpuPoster::getSpuId, spuId);
+        return  spuPosterMapper.selectList(wrapper);
+    }
+
+    @Override
+    @GmallCache(prefix = "attrList:")
+    public List<BaseAttrInfo> getAttrList(Long skuId) {
+        return baseAttrInfoMapper.getAttrList(skuId);
+    }
+
+    @Override
+    @GmallCache(prefix = "CategoryList:")
+    public List<JSONObject> getBaseCategoryList() {
+        List<JSONObject> jsonObjects = new ArrayList<>();
+        List<BaseCategoryView> categoryViewList = baseCategoryViewMapper.selectList(null);
+        Map<Long, List<BaseCategoryView>> collect = categoryViewList.stream().collect(Collectors.groupingBy(BaseCategoryView::getCategory1Id));
+        int index=1;
+        for (Map.Entry<Long, List<BaseCategoryView>> category1Entry : collect.entrySet()) {
+            Long category1Id = category1Entry.getKey();
+            List<BaseCategoryView> categoryViewList2 = category1Entry.getValue();
+            JSONObject category1  = new JSONObject();
+            category1.put("index",index++);
+            category1.put("categoryId", category1Id);
+            category1.put("categoryName", categoryViewList2.get(0).getCategory1Name());
+            Map<Long, List<BaseCategoryView>> collect1 = categoryViewList2.stream().collect(Collectors.groupingBy(BaseCategoryView::getCategory2Id));
+            List<JSONObject> category2Child = new ArrayList<>();
+            for (Map.Entry<Long, List<BaseCategoryView>> category2Entry : collect1.entrySet()) {
+                Long category2Id = category2Entry.getKey();
+                List<BaseCategoryView> categoryViewList3 = category2Entry.getValue();
+                JSONObject category2  = new JSONObject();
+                category2.put("categoryId", category2Id);
+                category2.put("categoryName", categoryViewList3.get(0).getCategory2Name());
+                category2Child.add(category2);
+                List<JSONObject> category3Child = new ArrayList<>();
+                for (BaseCategoryView category3View : categoryViewList3) {
+                    JSONObject category3 = new JSONObject();
+                    category3.put("categoryId",category3View.getCategory3Id());
+                    category3.put("categoryName",category3View.getCategory3Name());
+                    category3Child.add(category3);
+
+                }
+                category2.put("categoryChild",category3Child);
+            }
+
+            category1.put("categoryChild",category2Child);
+            jsonObjects.add(category1);
+        }
+        return jsonObjects;
     }
 
 }

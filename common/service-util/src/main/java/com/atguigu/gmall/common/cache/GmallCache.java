@@ -15,4 +15,5 @@ public @interface GmallCache {
     //  目的用这个前缀要想组成 缓存的key！
     String prefix() default "cache:";
 
+    String suffix() default ":info";
 }
