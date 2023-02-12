@@ -3,6 +3,7 @@ package com.atguigu.gmall.item.service.impl;
 import com.alibaba.fastjson.JSON;
 import com.atguigu.gmall.common.constant.RedisConst;
 import com.atguigu.gmall.item.service.ItemApiService;
+import com.atguigu.gmall.list.client.ListFeignClient;
 import com.atguigu.gmall.model.product.*;
 import com.atguigu.gmall.product.client.ProductFeignClient;
 import org.redisson.api.RBloomFilter;
@@ -29,6 +30,9 @@ public class ItemApiServiceImpl implements ItemApiService {
 
     @Autowired
     private ThreadPoolExecutor executor;
+
+    @Autowired
+    private ListFeignClient listFeignClient;
 
     @Override
     public Map<String, Object> getBySkuId(Long skuId) {
@@ -90,8 +94,12 @@ public class ItemApiServiceImpl implements ItemApiService {
             result.put("skuAttrList", skuAttrList);
         }, executor);
 
+        CompletableFuture<Void> hotScoreFuture = CompletableFuture.runAsync(() -> {
+            listFeignClient.incrHotScore(skuId);
+        }, executor);
+
         CompletableFuture.allOf(categoryViewFuture,spuSaleAttrListFuture, skuValueIdsFuture,
-                                spuPosterListFuture,priceFuture,skuAttrListFuture).join();
+                                spuPosterListFuture,priceFuture,skuAttrListFuture,hotScoreFuture).join();
 
         return result;
     }

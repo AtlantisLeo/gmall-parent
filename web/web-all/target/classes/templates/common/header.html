@@ -13,7 +13,7 @@
                 <div class="shortcut">
                     <ul class="fl">
                         <li class="f-item">尚品汇欢迎您！</li>
-                        <li  v-if="userInfo.nickName == ''" class="f-item">请<span><a href="javascript:" @click="login()">登录</a></span>　<span><a href="#">免费注册</a></span></li>
+                        <li  v-if="userInfo.nickName == ''" class="f-item"><span><a href="javascript:" @click="login()">请登录</a></span>　<span><a href="#">免费注册</a></span></li>
                         <li  v-if="userInfo.nickName != ''" class="f-item"><span>{{userInfo.nickName}}</span>　<span><a href="javascript:" @click="logout()">退出</a></span></li>
                     </ul>
                     <div class="fr typelist">
@@ -100,6 +100,7 @@
 
             created() {
                 this.showInfo()
+                this.enterSearch()
             },
 
             methods: {

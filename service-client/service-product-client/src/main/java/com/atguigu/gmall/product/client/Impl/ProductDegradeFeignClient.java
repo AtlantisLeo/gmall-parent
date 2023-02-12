@@ -50,4 +50,9 @@ public class ProductDegradeFeignClient implements ProductFeignClient {
     public List<BaseAttrInfo> getAttrList(Long skuId) {
         return null;
     }
+
+    @Override
+    public BaseTrademark getTrademark(Long tmId) {
+        return null;
+    }
 }

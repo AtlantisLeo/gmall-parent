@@ -38,4 +38,7 @@ public interface ProductFeignClient {
 
     @GetMapping("/api/product/inner/getAttrList/{skuId}")
     public List<BaseAttrInfo> getAttrList(@PathVariable("skuId") Long skuId);
+
+    @GetMapping("/api/product/inner/getTrademark/{tmId}")
+    public  BaseTrademark getTrademark(@PathVariable("tmId")Long tmId);
 }

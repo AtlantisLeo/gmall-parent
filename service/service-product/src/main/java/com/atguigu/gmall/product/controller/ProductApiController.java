@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.atguigu.gmall.common.result.Result;
 import com.atguigu.gmall.model.product.*;
 import com.atguigu.gmall.product.service.BaseManagerService;
+import com.atguigu.gmall.product.service.BaseTrademarkService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,6 +21,8 @@ public class ProductApiController {
 
     @Autowired
     private BaseManagerService baseManagerService;
+    @Autowired
+    private BaseTrademarkService baseTrademarkService;
 
     @GetMapping("inner/getSkuInfo/{skuId}")
     public SkuInfo getSkuInfo(@PathVariable Long skuId) {
@@ -61,6 +64,11 @@ public class ProductApiController {
     public Result getBaseCategoryList(){
         List<JSONObject> list = baseManagerService.getBaseCategoryList();
         return Result.ok(list);
+    }
+
+    @GetMapping("inner/getTrademark/{tmId}")
+    public  BaseTrademark getTrademark(@PathVariable("tmId")Long tmId){
+        return baseTrademarkService.getById(tmId);
     }
 
 }
