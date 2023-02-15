@@ -4,6 +4,8 @@ package com.atguigu.gmall.product.service.impl;
 import com.alibaba.fastjson.JSONObject;
 import com.atguigu.gmall.common.cache.GmallCache;
 import com.atguigu.gmall.common.constant.RedisConst;
+import com.atguigu.gmall.common.model.MqConst;
+import com.atguigu.gmall.common.service.RabbitService;
 import com.atguigu.gmall.model.product.*;
 import com.atguigu.gmall.product.mapper.*;
 import com.atguigu.gmall.product.service.BaseManagerService;
@@ -62,6 +64,8 @@ public class BaseManagerServiceImpl implements BaseManagerService {
     private BaseCategoryViewMapper baseCategoryViewMapper;
     @Autowired
     private RedissonClient redissonClient;
+    @Autowired
+    private RabbitService rabbitService;
 
     @Override
     public List<BaseCategory1> getCategory1() {
@@ -224,6 +228,7 @@ public class BaseManagerServiceImpl implements BaseManagerService {
         skuInfoMapper.updateById(skuInfo);
         RBloomFilter<Long> bloomFilter = redissonClient.getBloomFilter(RedisConst.SKU_BLOOM_FILTER);
         bloomFilter.add(skuId);
+        rabbitService.sendMessage(MqConst.EXCHANGE_DIRECT_GOODS, MqConst.ROUTING_GOODS_UPPER, skuId);
     }
 
     @Override
@@ -232,6 +237,7 @@ public class BaseManagerServiceImpl implements BaseManagerService {
         skuInfo.setIsSale(0);
         skuInfo.setId(skuId);
         skuInfoMapper.updateById(skuInfo);
+        rabbitService.sendMessage(MqConst.EXCHANGE_DIRECT_GOODS, MqConst.ROUTING_GOODS_LOWER, skuId);
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.atguigu.gmall.order.controller;
 
+import com.alibaba.fastjson.JSON;
 import com.alibaba.nacos.common.utils.StringUtils;
 import com.atguigu.gmall.cart.client.CartFeignController;
 import com.atguigu.gmall.common.result.Result;
@@ -10,10 +11,8 @@ import com.atguigu.gmall.model.order.OrderInfo;
 import com.atguigu.gmall.order.service.OrderService;
 import com.atguigu.gmall.product.client.ProductFeignClient;
 import com.baomidou.mybatisplus.core.metadata.IPage;
-
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.factory.annotation.Autowired;
-
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
@@ -86,7 +85,6 @@ public class OrderApiController {
     public Result<IPage<OrderInfo>> getOrderPage( @PathVariable Long page,
                                           @PathVariable Long limit,
                                           HttpServletRequest request){
-
         String userId = AuthContextHolder.getUserId(request);
         Page<OrderInfo> orderInfos = new Page<>(page, limit);
         IPage<OrderInfo> infoIPage = orderService.getOrderPage(orderInfos,userId);
@@ -96,5 +94,27 @@ public class OrderApiController {
         return Result.ok(infoIPage);
     }
 
+    @GetMapping("inner/getOrderInfo/{orderId}")
+    public OrderInfo getOrderInfo(@PathVariable(value = "orderId") Long orderId){
+        return orderService.getOrderInfo(orderId);
+    }
+
+    @RequestMapping("orderSplit")
+    public String orderSplit(HttpServletRequest request){
+        String orderId = request.getParameter("orderId");
+        String wareSkuMap = request.getParameter("wareSkuMap");
+
+        // 拆单：获取到的子订单集合
+        List<OrderInfo> subOrderInfoList = orderService.orderSplit(orderId,wareSkuMap);
+        // 声明一个存储map的集合
+        ArrayList<Map> mapArrayList = new ArrayList<>();
+        // 生成子订单集合
+        for (OrderInfo orderInfo : subOrderInfoList) {
+            Map map = orderService.initWareOrder(orderInfo);
+            // 添加到集合中！
+            mapArrayList.add(map);
+        }
+        return JSON.toJSONString(mapArrayList);
+    }
 
 }

@@ -51,7 +51,9 @@ public class ItemApiServiceImpl implements ItemApiService {
         CompletableFuture<Void> categoryViewFuture = skuInfoCompletableFuture.thenAcceptAsync(skuInfo -> {
             //  获取分类数据
             BaseCategoryView categoryView = productFeignClient.getCategoryView(skuInfo.getCategory3Id());
-            result.put("categoryView", categoryView);
+            if (categoryView!=null){
+                result.put("categoryView", categoryView);
+            }
         }, executor);
 
         CompletableFuture<Void> spuSaleAttrListFuture = skuInfoCompletableFuture.thenAcceptAsync(skuInfo -> {
