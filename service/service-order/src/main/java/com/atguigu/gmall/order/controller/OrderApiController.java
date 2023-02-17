@@ -43,6 +43,13 @@ public class OrderApiController {
         return Result.ok(map);
     }
 
+
+    @PostMapping("auth/submitSeckillOrder")
+    public Long  submitSeckillOrder(@RequestBody OrderInfo orderInfo){
+        Long orderId = orderService.submitOrder(orderInfo);
+        return orderId;
+    }
+
     @PostMapping("auth/submitOrder")
     public Result submitOrder(@RequestBody OrderInfo orderInfo, HttpServletRequest request){
         String userId = AuthContextHolder.getUserId(request);
